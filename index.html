@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Zakupy" />
 
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
@@ -19,8 +19,12 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      html, body { background: #ffafbd; }
+      html { background: #ffafbd; height: 100%; }
       body {
+        background: linear-gradient(to bottom, #ffafbd 0%, #ffc3a0 100%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        min-height: 100dvh;
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
         padding-left: env(safe-area-inset-left);
@@ -28,14 +32,24 @@
         -webkit-tap-highlight-color: transparent;
         -webkit-user-select: none;
         user-select: none;
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior-y: none;
       }
-      input { -webkit-user-select: text; user-select: text; }
+      input, textarea { -webkit-user-select: text; user-select: text; }
+      @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      .pop { animation: pop 0.18s ease-out; }
+      #install-hint {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
     </style>
   </head>
-  <body class="text-slate-900 min-h-screen bg-gradient-to-b from-[#ffafbd] to-[#ffc3a0]">
-    <main class="max-w-xl mx-auto px-4 py-8">
+  <body class="text-slate-900">
+    <main class="max-w-xl mx-auto px-4 py-8 pb-32">
       <header class="mb-6">
-        <h1 class="text-3xl font-semibold tracking-tight text-white drop-shadow-sm">Zakupy Karolinki</h1>
+        <h1 class="text-3xl font-semibold tracking-tight text-white drop-shadow-sm">
+          Zakupy Karolinki <span aria-hidden="true">💖</span>
+        </h1>
         <p class="text-sm text-white/80 mt-1" id="summary">Brak produktow</p>
       </header>
 
@@ -64,6 +78,20 @@
         Brak produktow. Dodaj pierwszy powyzej.
       </div>
     </main>
+
+    <div
+      id="install-hint"
+      class="hidden fixed bottom-4 left-4 right-4 max-w-xl mx-auto bg-white/85 rounded-2xl shadow-lg px-4 py-3 flex items-center gap-3"
+      style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));"
+    >
+      <div class="text-2xl" aria-hidden="true">💖</div>
+      <div class="flex-1 text-sm text-slate-700 leading-snug">
+        Dodaj do ekranu glownego: stuknij
+        <svg class="inline-block align-text-bottom" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        a potem <strong>Add to Home Screen</strong>.
+      </div>
+      <button id="install-hint-close" aria-label="Zamknij" class="text-slate-400 hover:text-slate-700 text-xl leading-none px-1">&times;</button>
+    </div>
 
     <script>
       const STORAGE_KEY = "grocery_items.v1";
@@ -97,7 +125,7 @@
         for (const it of items) {
           const li = document.createElement("li");
           li.className =
-            "group flex items-center gap-3 px-4 py-3 bg-white/95 border border-white/40 rounded-xl shadow-sm";
+            "pop group flex items-center gap-3 px-4 py-3 bg-white/95 border border-white/40 rounded-xl shadow-sm";
           li.innerHTML = `
             <span class="flex-1 text-base">${escapeHtml(it.item)}</span>
             <button data-id="${it.id}" aria-label="Usun" class="text-rose-400 hover:text-rose-600 active:text-rose-700 text-sm px-2 py-1">Usun</button>
@@ -144,6 +172,29 @@
           navigator.serviceWorker.register("/sw.js").catch(() => {});
         });
       }
+
+      // iOS Safari install hint: show only on iOS Safari (not installed yet, not dismissed before)
+      (function () {
+        const HINT_KEY = "install_hint_dismissed.v1";
+        const ua = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+        const isStandalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone === true;
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+        const dismissed = localStorage.getItem(HINT_KEY) === "1";
+
+        if (isIOS && isSafari && !isStandalone && !dismissed) {
+          const hint = document.getElementById("install-hint");
+          hint.classList.remove("hidden");
+          document
+            .getElementById("install-hint-close")
+            .addEventListener("click", () => {
+              hint.classList.add("hidden");
+              localStorage.setItem(HINT_KEY, "1");
+            });
+        }
+      })();
     </script>
   </body>
 </html>
