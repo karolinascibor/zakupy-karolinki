@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Zakupy Karolinki</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#ffafbd" />
+
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Zakupy" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html, body { background: #ffafbd; }
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      input { -webkit-user-select: text; user-select: text; }
+    </style>
+  </head>
+  <body class="text-slate-900 min-h-screen bg-gradient-to-b from-[#ffafbd] to-[#ffc3a0]">
+    <main class="max-w-xl mx-auto px-4 py-8">
+      <header class="mb-6">
+        <h1 class="text-3xl font-semibold tracking-tight text-white drop-shadow-sm">Zakupy Karolinki</h1>
+        <p class="text-sm text-white/80 mt-1" id="summary">Brak produktow</p>
+      </header>
+
+      <form id="new-item" class="flex gap-2 mb-6">
+        <input
+          id="new-item-input"
+          type="text"
+          inputmode="text"
+          enterkeyhint="done"
+          placeholder="Np. Mleko"
+          class="flex-1 px-4 py-3 rounded-xl border border-white/40 bg-white/95 shadow-sm focus:outline-none focus:ring-2 focus:ring-white text-base"
+          autocomplete="off"
+          autocapitalize="sentences"
+        />
+        <button
+          type="submit"
+          class="px-5 py-3 rounded-xl bg-white text-rose-500 font-semibold shadow-sm active:scale-95 transition"
+        >
+          Dodaj
+        </button>
+      </form>
+
+      <ul id="item-list" class="space-y-2"></ul>
+
+      <div id="empty" class="text-center text-white/80 py-12 hidden">
+        Brak produktow. Dodaj pierwszy powyzej.
+      </div>
+    </main>
+
+    <script>
+      const STORAGE_KEY = "grocery_items.v1";
+
+      const $list = document.getElementById("item-list");
+      const $form = document.getElementById("new-item");
+      const $input = document.getElementById("new-item-input");
+      const $summary = document.getElementById("summary");
+      const $empty = document.getElementById("empty");
+
+      let items = load();
+
+      function load() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        } catch {
+          return [];
+        }
+      }
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
+
+      function uid() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      }
+
+      function render() {
+        $list.innerHTML = "";
+        for (const it of items) {
+          const li = document.createElement("li");
+          li.className =
+            "group flex items-center gap-3 px-4 py-3 bg-white/95 border border-white/40 rounded-xl shadow-sm";
+          li.innerHTML = `
+            <span class="flex-1 text-base">${escapeHtml(it.item)}</span>
+            <button data-id="${it.id}" aria-label="Usun" class="text-rose-400 hover:text-rose-600 active:text-rose-700 text-sm px-2 py-1">Usun</button>
+          `;
+          $list.appendChild(li);
+        }
+
+        $empty.classList.toggle("hidden", items.length > 0);
+        $summary.textContent =
+          items.length === 0
+            ? "Brak produktow"
+            : `${items.length} ${items.length === 1 ? "produkt" : "produkty"}`;
+      }
+
+      function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[c]);
+      }
+
+      $form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = $input.value.trim();
+        if (!text) return;
+        items.unshift({ id: uid(), item: text });
+        save();
+        $input.value = "";
+        render();
+        $input.blur();
+      });
+
+      $list.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-id]");
+        if (!btn) return;
+        items = items.filter((it) => it.id !== btn.dataset.id);
+        save();
+        render();
+      });
+
+      render();
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
