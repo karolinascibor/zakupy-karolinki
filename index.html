@@ -210,15 +210,13 @@
 
     <div id="toast" role="status" aria-live="polite"></div>
 
-    <script>
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
       const SUPABASE_URL = "https://gldzaglpyyibotexssqn.supabase.co";
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHphZ2xweXlpYm90ZXhzc3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMTE2MzcsImV4cCI6MjA5NDU4NzYzN30.qjE_SKu2kCMMUIqUNf7ku-T_To9xFXvWSA8MTg4j2FY";
-      const HEADERS = {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-      };
-      const API = `${SUPABASE_URL}/rest/v1/grocery_items`;
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const TABLE = "grocery_items";
 
       const $list = document.getElementById("item-list");
       const $form = document.getElementById("new-item");
@@ -272,38 +270,46 @@
       }
 
       async function loadItems() {
-        try {
-          const r = await fetch(`${API}?select=*&order=created_at.desc`, { headers: HEADERS });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          items = await r.json();
-          render();
-        } catch (e) {
+        const { data, error } = await sb
+          .from(TABLE)
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) {
           toast("Blad polaczenia z baza");
-          console.error(e);
+          console.error(error);
+          return;
         }
+        items = data;
+        render();
       }
 
       async function addItem(text) {
-        const optimistic = { id: `tmp-${Date.now()}`, item: text, done: false, created_at: new Date().toISOString() };
-        items.unshift(optimistic);
+        const tmpId = `tmp-${Date.now()}`;
+        items.unshift({
+          id: tmpId,
+          item: text,
+          done: false,
+          created_at: new Date().toISOString(),
+        });
         render();
-        try {
-          const r = await fetch(API, {
-            method: "POST",
-            headers: { ...HEADERS, Prefer: "return=representation" },
-            body: JSON.stringify({ item: text }),
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const [saved] = await r.json();
-          const i = items.findIndex((it) => it.id === optimistic.id);
-          if (i !== -1) items[i] = saved;
-          render();
-        } catch (e) {
-          items = items.filter((it) => it.id !== optimistic.id);
+        const { data, error } = await sb
+          .from(TABLE)
+          .insert({ item: text })
+          .select()
+          .single();
+        if (error) {
+          items = items.filter((it) => it.id !== tmpId);
           render();
           toast("Nie udalo sie dodac");
-          console.error(e);
+          console.error(error);
+          return;
         }
+        // Replace tmp with real row, OR drop tmp if realtime already added it
+        const realIdx = items.findIndex((it) => it.id === data.id);
+        const tmpIdx = items.findIndex((it) => it.id === tmpId);
+        if (realIdx !== -1 && tmpIdx !== -1) items.splice(tmpIdx, 1);
+        else if (tmpIdx !== -1) items[tmpIdx] = data;
+        render();
       }
 
       async function toggleDone(id) {
@@ -312,18 +318,12 @@
         const next = !it.done;
         it.done = next;
         render();
-        try {
-          const r = await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
-            method: "PATCH",
-            headers: HEADERS,
-            body: JSON.stringify({ done: next }),
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        } catch (e) {
+        const { error } = await sb.from(TABLE).update({ done: next }).eq("id", id);
+        if (error) {
           it.done = !next;
           render();
           toast("Nie udalo sie zmienic");
-          console.error(e);
+          console.error(error);
         }
       }
 
@@ -331,19 +331,45 @@
         const prev = items;
         items = items.filter((it) => it.id !== id);
         render();
-        try {
-          const r = await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
-            method: "DELETE",
-            headers: HEADERS,
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        } catch (e) {
+        const { error } = await sb.from(TABLE).delete().eq("id", id);
+        if (error) {
           items = prev;
           render();
           toast("Nie udalo sie usunac");
-          console.error(e);
+          console.error(error);
         }
       }
+
+      // Realtime: merge inbound changes into local state, dedup by id
+      function applyRealtime(payload) {
+        const { eventType, new: row, old } = payload;
+        if (eventType === "INSERT") {
+          if (items.some((i) => i.id === row.id)) return;
+          items.unshift(row);
+          render();
+        } else if (eventType === "UPDATE") {
+          const i = items.findIndex((it) => it.id === row.id);
+          if (i !== -1) items[i] = row;
+          else items.unshift(row);
+          render();
+        } else if (eventType === "DELETE") {
+          const id = (old && old.id) || (row && row.id);
+          if (!id) return;
+          items = items.filter((it) => it.id !== id);
+          render();
+        }
+      }
+
+      sb.channel("grocery_items_changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: TABLE },
+          applyRealtime
+        )
+        .subscribe((status) => {
+          // On (re)connect, re-fetch to catch up on anything missed
+          if (status === "SUBSCRIBED") loadItems();
+        });
 
       $form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -365,8 +391,6 @@
         }
         toggleDone(id);
       });
-
-      loadItems();
 
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
