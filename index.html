@@ -6,195 +6,320 @@
     <title>Zakupy Karolinki</title>
 
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#ffafbd" />
+    <meta name="theme-color" content="#faf6f0" />
 
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Zakupy" />
 
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      html { background: #ffafbd; height: 100%; }
+      :root {
+        --bg: #faf6f0;
+        --card: #ffffff;
+        --accent: #e94b5a;
+        --accent-press: #c63d49;
+        --text: #1b1b1f;
+        --text-2: #8a8a93;
+        --line: #ece4d8;
+        --shadow: 0 1px 2px rgba(27, 27, 31, 0.04), 0 4px 16px rgba(27, 27, 31, 0.05);
+        --shadow-press: 0 1px 2px rgba(27, 27, 31, 0.06);
+      }
+      * { box-sizing: border-box; }
+      html { background: var(--bg); height: 100%; }
       body {
-        background: linear-gradient(to bottom, #ffafbd 0%, #ffc3a0 100%);
-        background-attachment: fixed;
-        min-height: 100vh;
-        min-height: 100dvh;
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+        font-size: 17px;
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+        -webkit-text-size-adjust: 100%;
         -webkit-tap-highlight-color: transparent;
         -webkit-user-select: none;
         user-select: none;
-        -webkit-text-size-adjust: 100%;
         overscroll-behavior-y: none;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        min-height: 100vh;
+        min-height: 100dvh;
       }
       input, textarea { -webkit-user-select: text; user-select: text; }
-      @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      .pop { animation: pop 0.18s ease-out; }
-      #install-hint {
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+
+      main { max-width: 28rem; margin: 0 auto; padding: 24px 20px 120px; }
+
+      header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+      .avatar {
+        width: 56px; height: 56px; border-radius: 50%;
+        background-image: url('/icon-192.png');
+        background-size: cover; background-position: center;
+        box-shadow: var(--shadow);
+        flex-shrink: 0;
       }
+      .titles h1 {
+        margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--text);
+      }
+      .titles p { margin: 2px 0 0; font-size: 14px; color: var(--text-2); font-weight: 500; }
+
+      form#new-item { display: flex; gap: 10px; margin-bottom: 22px; }
+      input#new-item-input {
+        flex: 1;
+        height: 50px;
+        padding: 0 18px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        color: var(--text);
+        font: inherit;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        box-shadow: var(--shadow);
+      }
+      input#new-item-input::placeholder { color: var(--text-2); }
+      input#new-item-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(233, 75, 90, 0.12); }
+
+      button.add-btn {
+        width: 50px; height: 50px;
+        flex-shrink: 0;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 2px 8px rgba(233, 75, 90, 0.30);
+        transition: transform 0.1s, background 0.15s;
+      }
+      button.add-btn:active { background: var(--accent-press); transform: scale(0.94); }
+      button.add-btn svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+
+      ul#item-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+      li.row {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        box-shadow: var(--shadow);
+        animation: pop 0.2s ease-out;
+      }
+      li.row.removing { animation: fade 0.15s ease-in forwards; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+      .row .text { flex: 1; font-size: 16px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .del-btn {
+        width: 34px; height: 34px;
+        border: none; background: transparent; color: var(--text-2);
+        border-radius: 50%; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s, color 0.15s;
+      }
+      .del-btn:hover, .del-btn:active { background: rgba(233, 75, 90, 0.1); color: var(--accent); }
+      .del-btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+      #empty {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-2);
+        font-size: 15px;
+      }
+      #empty .empty-avatar {
+        width: 96px; height: 96px;
+        margin: 0 auto 16px;
+        border-radius: 50%;
+        background-image: url('/icon-512.png');
+        background-size: cover; background-position: center;
+        box-shadow: var(--shadow);
+        opacity: 0.85;
+      }
+
+      #toast {
+        position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+        transform: translateX(-50%) translateY(100px);
+        background: #1b1b1f; color: #fff;
+        font-size: 14px; padding: 10px 16px;
+        border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        opacity: 0; transition: opacity 0.2s, transform 0.2s;
+        pointer-events: none;
+        max-width: calc(100vw - 40px);
+      }
+      #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      @keyframes pop { from { transform: scale(0.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes fade { to { opacity: 0; transform: translateY(-4px); } }
     </style>
   </head>
-  <body class="text-slate-900">
-    <main class="max-w-xl mx-auto px-4 py-8 pb-32">
-      <header class="mb-6">
-        <h1 class="text-3xl font-semibold tracking-tight text-white drop-shadow-sm">
-          Zakupy Karolinki <span aria-hidden="true">💖</span>
-        </h1>
-        <p class="text-sm text-white/80 mt-1" id="summary">Brak produktow</p>
+  <body>
+    <main>
+      <header>
+        <div class="avatar" aria-hidden="true"></div>
+        <div class="titles">
+          <h1>Zakupy</h1>
+          <p id="summary">&nbsp;</p>
+        </div>
       </header>
 
-      <form id="new-item" class="flex gap-2 mb-6">
+      <form id="new-item">
         <input
           id="new-item-input"
           type="text"
           inputmode="text"
           enterkeyhint="done"
-          placeholder="Np. Mleko"
-          class="flex-1 px-4 py-3 rounded-xl border border-white/40 bg-white/95 shadow-sm focus:outline-none focus:ring-2 focus:ring-white text-base"
+          placeholder="Co kupic?"
           autocomplete="off"
           autocapitalize="sentences"
         />
-        <button
-          type="submit"
-          class="px-5 py-3 rounded-xl bg-white text-rose-500 font-semibold shadow-sm active:scale-95 transition"
-        >
-          Dodaj
+        <button type="submit" class="add-btn" aria-label="Dodaj">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         </button>
       </form>
 
-      <ul id="item-list" class="space-y-2"></ul>
+      <ul id="item-list"></ul>
 
-      <div id="empty" class="text-center text-white/80 py-12 hidden">
-        Brak produktow. Dodaj pierwszy powyzej.
+      <div id="empty" hidden>
+        <div class="empty-avatar" aria-hidden="true"></div>
+        Lista pusta
       </div>
     </main>
 
-    <div
-      id="install-hint"
-      class="hidden fixed bottom-4 left-4 right-4 max-w-xl mx-auto bg-white/85 rounded-2xl shadow-lg px-4 py-3 flex items-center gap-3"
-      style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));"
-    >
-      <div class="text-2xl" aria-hidden="true">💖</div>
-      <div class="flex-1 text-sm text-slate-700 leading-snug">
-        Dodaj do ekranu glownego: stuknij
-        <svg class="inline-block align-text-bottom" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
-        a potem <strong>Add to Home Screen</strong>.
-      </div>
-      <button id="install-hint-close" aria-label="Zamknij" class="text-slate-400 hover:text-slate-700 text-xl leading-none px-1">&times;</button>
-    </div>
+    <div id="toast" role="status" aria-live="polite"></div>
 
     <script>
-      const STORAGE_KEY = "grocery_items.v1";
+      const SUPABASE_URL = "https://gldzaglpyyibotexssqn.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsZHphZ2xweXlpYm90ZXhzc3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMTE2MzcsImV4cCI6MjA5NDU4NzYzN30.qjE_SKu2kCMMUIqUNf7ku-T_To9xFXvWSA8MTg4j2FY";
+      const HEADERS = {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      };
+      const API = `${SUPABASE_URL}/rest/v1/grocery_items`;
 
       const $list = document.getElementById("item-list");
       const $form = document.getElementById("new-item");
       const $input = document.getElementById("new-item-input");
       const $summary = document.getElementById("summary");
       const $empty = document.getElementById("empty");
+      const $toast = document.getElementById("toast");
 
-      let items = load();
+      const TRASH_SVG = `<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
 
-      function load() {
-        try {
-          return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-        } catch {
-          return [];
-        }
+      let items = [];
+
+      function toast(msg) {
+        $toast.textContent = msg;
+        $toast.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => $toast.classList.remove("show"), 2200);
       }
 
-      function save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      }
-
-      function uid() {
-        return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        })[c]);
       }
 
       function render() {
         $list.innerHTML = "";
         for (const it of items) {
           const li = document.createElement("li");
-          li.className =
-            "pop group flex items-center gap-3 px-4 py-3 bg-white/95 border border-white/40 rounded-xl shadow-sm";
+          li.className = "row";
+          li.dataset.id = it.id;
           li.innerHTML = `
-            <span class="flex-1 text-base">${escapeHtml(it.item)}</span>
-            <button data-id="${it.id}" aria-label="Usun" class="text-rose-400 hover:text-rose-600 active:text-rose-700 text-sm px-2 py-1">Usun</button>
+            <span class="dot" aria-hidden="true"></span>
+            <span class="text">${escapeHtml((it.item || "").trim())}</span>
+            <button class="del-btn" aria-label="Usun">${TRASH_SVG}</button>
           `;
           $list.appendChild(li);
         }
-
-        $empty.classList.toggle("hidden", items.length > 0);
-        $summary.textContent =
-          items.length === 0
-            ? "Brak produktow"
-            : `${items.length} ${items.length === 1 ? "produkt" : "produkty"}`;
+        $empty.hidden = items.length > 0;
+        $summary.innerHTML = items.length === 0
+          ? "&nbsp;"
+          : `${items.length} ${items.length === 1 ? "produkt" : items.length < 5 ? "produkty" : "produktow"}`;
       }
 
-      function escapeHtml(s) {
-        return s.replace(/[&<>"']/g, (c) => ({
-          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-        })[c]);
+      async function loadItems() {
+        try {
+          const r = await fetch(`${API}?select=*&order=created_at.desc`, { headers: HEADERS });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          items = await r.json();
+          render();
+        } catch (e) {
+          toast("Blad polaczenia z baza");
+          console.error(e);
+        }
+      }
+
+      async function addItem(text) {
+        const optimistic = { id: `tmp-${Date.now()}`, item: text };
+        items.unshift(optimistic);
+        render();
+        try {
+          const r = await fetch(API, {
+            method: "POST",
+            headers: { ...HEADERS, Prefer: "return=representation" },
+            body: JSON.stringify({ item: text }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const [saved] = await r.json();
+          const i = items.findIndex((it) => it.id === optimistic.id);
+          if (i !== -1) items[i] = saved;
+          render();
+        } catch (e) {
+          items = items.filter((it) => it.id !== optimistic.id);
+          render();
+          toast("Nie udalo sie dodac");
+          console.error(e);
+        }
+      }
+
+      async function deleteItem(id) {
+        const prev = items;
+        items = items.filter((it) => it.id !== id);
+        render();
+        try {
+          const r = await fetch(`${API}?id=eq.${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: HEADERS,
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        } catch (e) {
+          items = prev;
+          render();
+          toast("Nie udalo sie usunac");
+          console.error(e);
+        }
       }
 
       $form.addEventListener("submit", (e) => {
         e.preventDefault();
         const text = $input.value.trim();
         if (!text) return;
-        items.unshift({ id: uid(), item: text });
-        save();
         $input.value = "";
-        render();
         $input.blur();
+        addItem(text);
       });
 
       $list.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-id]");
+        const btn = e.target.closest(".del-btn");
         if (!btn) return;
-        items = items.filter((it) => it.id !== btn.dataset.id);
-        save();
-        render();
+        const li = btn.closest("li.row");
+        if (!li) return;
+        const id = li.dataset.id;
+        li.classList.add("removing");
+        setTimeout(() => deleteItem(id), 130);
       });
 
-      render();
+      loadItems();
 
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("/sw.js").catch(() => {});
         });
       }
-
-      // iOS Safari install hint: show only on iOS Safari (not installed yet, not dismissed before)
-      (function () {
-        const HINT_KEY = "install_hint_dismissed.v1";
-        const ua = navigator.userAgent;
-        const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-        const isStandalone =
-          window.matchMedia("(display-mode: standalone)").matches ||
-          window.navigator.standalone === true;
-        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-        const dismissed = localStorage.getItem(HINT_KEY) === "1";
-
-        if (isIOS && isSafari && !isStandalone && !dismissed) {
-          const hint = document.getElementById("install-hint");
-          hint.classList.remove("hidden");
-          document
-            .getElementById("install-hint-close")
-            .addEventListener("click", () => {
-              hint.classList.add("hidden");
-              localStorage.setItem(HINT_KEY, "1");
-            });
-        }
-      })();
     </script>
   </body>
 </html>

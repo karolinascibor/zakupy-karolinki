@@ -1,4 +1,4 @@
-const CACHE = "zakupy-v2";
+const CACHE = "zakupy-v3";
 const ASSETS = [
   "/",
   "/index.html",
@@ -7,7 +7,6 @@ const ASSETS = [
   "/icon-512.png",
   "/apple-touch-icon.png",
   "/favicon-32.png",
-  "https://cdn.tailwindcss.com",
 ];
 
 self.addEventListener("install", (e) => {
@@ -27,11 +26,18 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  // Never cache Supabase API responses - we always want fresh data
+  if (url.hostname.endsWith(".supabase.co")) return;
+  // Only cache same-origin
+  if (url.origin !== self.location.origin) return;
+
   e.respondWith(
     caches.match(req).then((cached) => {
       const fetched = fetch(req)
         .then((res) => {
-          if (res && res.status === 200 && res.type !== "opaque") {
+          if (res && res.status === 200 && res.type === "basic") {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
